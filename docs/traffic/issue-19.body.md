@@ -1,4 +1,4 @@
-Confirmed the failure mode: not a permission problem on the socket file, the syscall itself is
+The failure mode matches what you describe: it is not a permission problem on the socket file, the syscall itself is
 denied, so `chmod`/path changes do nothing and every page command dies while `list` still works
 (it talks to Chrome directly, no daemon).
 
@@ -11,6 +11,11 @@ consent prompts, default path untouched.
 ```bash
 CDP_DAEMON_TCP=1 cdp snap <TARGET>
 ```
+
+Caveat, stated plainly: I did not have an AF_UNIX-denying sandbox to reproduce the original `listen
+EPERM`, so this is verified on the TCP side only — same NDJSON protocol, an unauthenticated request
+gets `{"ok":false,"error":"unauthorized"}`, the token-bearing one is served, `stop` removes the port
+file, and the default transport (named pipe here) still works.
 
 ~40 lines + tests: https://github.com/yidasanqian/chrome-cdp-kit (`docs/UPSTREAM-FIXES.md`, #19).
 I understand the complexity objection from #19 — that is exactly why it is an env-var opt-in and not

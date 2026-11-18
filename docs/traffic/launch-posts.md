@@ -11,7 +11,7 @@
 文件：`docs/traffic/issue-40.body.md`
 
 ```markdown
-Thanks — reproduced on macOS 15 with a Chromium 147 base (Helium), same two symptoms:
+Thanks — I could not reproduce this on Helium/Dia (no macOS build here), but a stub endpoint on Windows reproduces the same two symptoms you describe:
 
 - upgrade without `Origin` → silent close, surfaced as `WebSocket error: error`
 - upgrade with a non-allowlisted `Origin` → 403 with the explanatory body
@@ -23,6 +23,12 @@ Two things fixed this on my side, both generic:
    answers, the port is alive and the cause is the allowlist, so the error now says:
 
    `WebSocket rejected (...) while http://127.0.0.1:9222/json/version still answers. Chromium 128+ drops WebSocket upgrades from clients it does not allowlist: relaunch the browser with --remote-allow-origins=* (or the exact origin).`
+
+Verified here: `npm run check` (22 tests) plus a stub case — `/json/version` answers 200 while the
+upgrade is rejected with 403. The old code printed `WebSocket error: error`; the new code exits 1 in
+~300ms with the message above. One more thing worth knowing: when the rejection arrives as a bare
+`close` with no `error` event, the connect promise never settled and `cdp list` hung with no output at
+all — that is handled now too.
 
 The docs note is in `docs/TROUBLESHOOTING.md`. Working tree with the change, plus tests, is here:
 https://github.com/yidasanqian/chrome-cdp-kit (`docs/UPSTREAM-FIXES.md` section #40).
@@ -48,6 +54,10 @@ cdp drag <TARGET> <x1> <y1> <x2> <y2> [steps]   # default 10 steps, capped at 50
 It sends `mouseMoved` (0) → `mousePressed` (1) → N interpolated `mouseMoved` (1) → `mouseReleased`,
 all CSS pixels, so the same `CSS px = shot px / DPR` rule as `clickxy` applies.
 
+Verified on a headless Chrome canvas listening for the three events: `drag 100 120 500 420 20` gave
+down=1, move=21, up=1, `buttons=[1]`, start=[100,120], end=[500,420] — so the intermediate moves are
+real, not a press/release pair with one jump.
+
 Implementation is ~15 lines next to `clickXyStr` in `cdp.mjs`; test asserts the help text and the
 step cap. https://github.com/yidasanqian/chrome-cdp-kit — `docs/UPSTREAM-FIXES.md` section #24.
 ```
@@ -57,7 +67,7 @@ step cap. https://github.com/yidasanqian/chrome-cdp-kit — `docs/UPSTREAM-FIXES
 文件：`docs/traffic/issue-19.body.md`
 
 ```markdown
-Confirmed the failure mode: not a permission problem on the socket file, the syscall itself is
+The failure mode matches what you describe: it is not a permission problem on the socket file, the syscall itself is
 denied, so `chmod`/path changes do nothing and every page command dies while `list` still works
 (it talks to Chrome directly, no daemon).
 
@@ -70,6 +80,11 @@ consent prompts, default path untouched.
 ```bash
 CDP_DAEMON_TCP=1 cdp snap <TARGET>
 ```
+
+Caveat, stated plainly: I did not have an AF_UNIX-denying sandbox to reproduce the original `listen
+EPERM`, so this is verified on the TCP side only — same NDJSON protocol, an unauthenticated request
+gets `{"ok":false,"error":"unauthorized"}`, the token-bearing one is served, `stop` removes the port
+file, and the default transport (named pipe here) still works.
 
 ~40 lines + tests: https://github.com/yidasanqian/chrome-cdp-kit (`docs/UPSTREAM-FIXES.md`, #19).
 I understand the complexity objection from #19 — that is exactly why it is an env-var opt-in and not
