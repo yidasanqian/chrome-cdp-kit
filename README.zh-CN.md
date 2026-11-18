@@ -5,7 +5,6 @@
 [![CI](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml)
 [![Node 22+](https://img.shields.io/badge/node-%E2%89%A522-3c873a)](https://nodejs.org)
 [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![upstream fixes](https://img.shields.io/badge/upstream%20fixes-%2319%20%2324%20%2340-brightgreen)](docs/UPSTREAM-FIXES.md)
 
 面向 agent 与人类的 Chrome DevTools Protocol 工具集：
 
@@ -13,18 +12,6 @@
 - 把这份**登录态**交给一个**全新的独立浏览器 profile**——不用关掉原浏览器，也不用复制 profile 目录。
 
 基于 [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0**（`ffea76a2`，MIT）。上游代码保持原样，新增功能全部在 `skills/chrome-cdp/scripts/kit/`；上游命令、参数与脚本调用方式完全兼容。
-
-## 已修复的上游 issue
-
-[chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill/issues) 还开着的 issue，本项目已经有答案，每条都附验证命令：
-
-| 上游 issue | 本项目怎么处理 | 位置 | 验证 |
-|---|---|---|---|
-| [#40](https://github.com/pasky/chrome-cdp-skill/issues/40) Chromium 128+ 会丢弃不在白名单的 WebSocket 握手 | 本项目启动的浏览器带 `--remote-allow-origins=*`；握手被拒时不再只报 `WebSocket error: error`，而是直接点明该参数 | `kit/launch.mjs`、`cdp.mjs` | `npm test -- --test-name-pattern=allowlist` |
-| [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) canvas / three.js 场景无法拖拽 | `cdp drag <target> x1 y1 x2 y2 [steps]`——按下、插值移动、松开 | `cdp.mjs` | `cdp drag <target> 100 100 400 300 20` |
-| [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) 沙箱里 daemon socket `listen EPERM` | 设 `CDP_DAEMON_TCP=1`，同一套 daemon 协议改走 loopback 端口，用 token 鉴权 | `kit/ipc.mjs`、`cdp.mjs` | `CDP_DAEMON_TCP=1 cdp snap <target>` |
-
-根因、取舍与上游 PR 计划：[docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)；常见故障：[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
 
 ## 与原版对比
 

@@ -14,6 +14,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/), SemVer on top of the up
   keep in sync. The CLI-only section documents the clone route instead.
 - `workflow_dispatch` re-runs the release for an existing tag and refreshes its notes.
 
+### Documentation
+
+- README keeps the product story only. The per-issue fix mapping lives in `docs/UPSTREAM-FIXES.md`
+  and in the GitHub Release notes, which the release workflow generates from this changelog.
+
 ## [1.3.0] - 2026-11-18
 
 

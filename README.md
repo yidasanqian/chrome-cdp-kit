@@ -5,7 +5,6 @@
 [![CI](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml)
 [![Node 22+](https://img.shields.io/badge/node-%E2%89%A522-3c873a)](https://nodejs.org)
 [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![upstream fixes](https://img.shields.io/badge/upstream%20fixes-%2319%20%2324%20%2340-brightgreen)](docs/UPSTREAM-FIXES.md)
 
 A Chrome DevTools Protocol toolkit for agents and humans:
 
@@ -13,18 +12,6 @@ A Chrome DevTools Protocol toolkit for agents and humans:
 - hand that **login state to a new, independent browser profile** — without closing the first browser, without copying its profile directory.
 
 Built on [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0** (`ffea76a2`, MIT). The upstream code stays intact; every addition lives in `skills/chrome-cdp/scripts/kit/`. Existing upstream commands, arguments and scripts keep working.
-
-## Upstream issues fixed here
-
-Open issues in [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill/issues) that this repo already answers, each with the command that proves it:
-
-| Upstream issue | What this repo does | Where | Verify |
-|---|---|---|---|
-| [#40](https://github.com/pasky/chrome-cdp-skill/issues/40) Chromium 128+ drops non-allowlisted WebSocket upgrades | launched browsers get `--remote-allow-origins=*`; a rejected handshake now names the flag instead of `WebSocket error: error` | `kit/launch.mjs`, `cdp.mjs` | `npm test -- --test-name-pattern=allowlist` |
-| [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) no mouse drag on canvas / three.js scenes | `cdp drag <target> x1 y1 x2 y2 [steps]` — press, interpolated moves, release | `cdp.mjs` | `cdp drag <target> 100 100 400 300 20` |
-| [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) `listen EPERM` on the daemon socket in sandboxes | `CDP_DAEMON_TCP=1` runs the same daemon protocol on a loopback port, gated by a token | `kit/ipc.mjs`, `cdp.mjs` | `CDP_DAEMON_TCP=1 cdp snap <target>` |
-
-Root causes, trade-offs and the upstream-PR plan: [docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md). Failures you are likely to hit: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Compared with the original
 
