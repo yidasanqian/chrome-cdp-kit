@@ -78,7 +78,7 @@ After merging, bump the version (minor for upstream features, patch for fixes), 
 
 ```bash
 npm test
-git tag v1.2.0 && git push origin v1.2.0
+git tag v1.3.0 && git push origin v1.3.0
 ```
 
 Publishing is opt-in per channel, and each channel has a manifest to keep in sync with `package.json`:
