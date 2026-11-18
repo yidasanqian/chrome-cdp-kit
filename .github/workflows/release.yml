@@ -27,6 +27,7 @@ jobs:
     name: tests and tag/version agreement
     runs-on: ubuntu-latest
     steps:
+      # Tests and the version check must run against the tag being released.
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref_name }}
@@ -50,14 +51,17 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     steps:
+      # Default ref on purpose: a tag published before scripts/ existed cannot run
+      # the notes script, so the tooling comes from the workflow commit while the
+      # version comes from the tag.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: notes from CHANGELOG
-        run: node scripts/release-notes.mjs > notes.md
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release-notes.mjs "${TAG#v}" > notes.md
       - name: create or update the release
         env:
           GH_TOKEN: ${{ github.token }}
