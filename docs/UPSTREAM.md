@@ -101,7 +101,7 @@ refreshes the release notes. A tag that disagrees with `package.json` fails befo
   short-lived credential at publish time, and `--provenance` attaches the signed attestation.
 - Fallback if trusted publishing is unavailable: add an `NPM_TOKEN` secret with publish rights; the
   workflow passes it as `NODE_AUTH_TOKEN` and the same step succeeds.
-- With neither configured the publish step fails fast with 401/403 and the log names the missing setup.
+- With neither configured the publish step stops at `npm error code ENEEDAUTH` (observed on run 44252846548) after building the tarball correctly, so a failed auth never publishes anything.
 
 
 Publishing is opt-in per channel, and each channel has a manifest to keep in sync with `package.json`:
