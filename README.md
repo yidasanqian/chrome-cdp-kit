@@ -92,23 +92,18 @@ Nothing else is left behind: no autostart, no global config, no PATH entry. Live
 
 ### CLI only
 
-The `cdp` binary ships inside the npm package:
-
-```bash
-npm i -g chrome-cdp-kit           # puts `cdp` on PATH
-npx -p chrome-cdp-kit cdp doctor  # or run it without a global install
-```
-
-The npm name is `chrome-cdp-kit`, **not** `cdp` — a different, unrelated package owns `cdp` on the
-registry, so `npx cdp` runs that one instead of this tool.
-
-Prefer a checkout? There is no build step:
+The repo ships the `cdp` binary; installing the skill already gives you the same file at
+`skills/chrome-cdp/scripts/cdp.mjs`. Want it on your PATH? There is no build step:
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
 npm link            # optional: puts `cdp` on PATH
+cdp doctor
 ```
+
+There is no npm package, by design — the rationale is in [docs/UPSTREAM.md](docs/UPSTREAM.md#release).
+
 
 ## Enable debugging once
 

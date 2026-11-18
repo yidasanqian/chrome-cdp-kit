@@ -8,7 +8,7 @@
         │  ①  在 issue / PR 里给出「已修 + 可复现命令」
         ▼
 chrome-cdp-kit 仓库（★ 与 skill 安装）
-        │  ②  awesome list / npm / GitHub topics / 社区帖
+        │  ②  awesome list / GitHub topics / Release 页 / 社区帖
         ▼
 实际使用者（`cdp auth sync` 的真实需求）
 ```
@@ -59,7 +59,6 @@ gh issue comment 40 --repo pasky/chrome-cdp-skill --body-file docs/traffic/issue
 
 | 动作 | 具体做法 | 一次性收益 |
 |---|---|---|
-| npm 发布 | `npm publish`（包名 `chrome-cdp-kit` 基线时未被占用，发布前 `npm view chrome-cdp-kit` 再确认） | `npm search chrome devtools protocol` 长尾 |
 | Claude Code plugin marketplace | `.claude-plugin/marketplace.json` 让 `/plugin marketplace add yidasanqian/chrome-cdp-kit` 生效；和 `anthropics/skills`、`obra/superpowers` 同一套 schema | Claude Code 用户的唯一入口 |
 | skills CLI（skills.sh） | `npx skills add yidasanqian/chrome-cdp-kit --skill chrome-cdp`；skills.sh 会自动收录能发现的 skill | Codex、Cursor、OpenCode 等 80+ agent |
 | pi registry | `pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0` | pi 用户 |
@@ -92,12 +91,12 @@ gh issue comment 40 --repo pasky/chrome-cdp-skill --body-file docs/traffic/issue
 
 | 周 | 动作 | 目的 |
 |---|---|---|
-| W1 | 三个修复进 `main`，打 `v1.3.0`，npm + pi 发布，README 首屏改写 | 有可指向的稳定版本 |
+| W1 | 三个修复进 `main`，打 `v1.3.0`，GitHub Release 与 pi 安装就位，README 首屏改写 | 有可指向的稳定版本 |
 | W2 | 三个上游 issue 回复 + 三份 PR；awesome list 提 3 条 | 拿到精准外链 |
 | W3 | Show HN + 两个 Reddit 帖 + X 串 | 峰值曝光 |
 | W4 | 中文三连（V2EX、掘金、知乎），把前三周的真实提问整理成 TROUBLESHOOTING 条目 | 长尾沉淀 |
 
-复盘只看四个数：仓库 `unique visitors / referrers`、star 增量、npm 周下载、issue 里出现的真实使用场景。
+复盘只看四个数：仓库 `unique visitors / referrers`、star 增量、GitHub Release 页访问量、issue 里出现的真实使用场景。
 referrers 里排第一的渠道，下一轮加倍；star 涨了但下载没涨，说明首屏没把「怎么装」写清。
 
 ## 不要做

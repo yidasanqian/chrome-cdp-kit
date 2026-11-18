@@ -6,10 +6,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/), SemVer on top of the up
 
 ### Changed
 
-- npm publish and the GitHub Release are CI-only (`.github/workflows/release.yml`): a tag push runs the
-  tests, checks the tag against `package.json`, publishes with `--provenance`, then writes the Release
-  notes from `CHANGELOG.md`. `scripts/release-notes.mjs` extracts that section.
-- `workflow_dispatch` republishes an existing tag; the npm step skips a version that is already published.
+- Packaging is CI-only (`.github/workflows/release.yml`): a tag push runs the tests, checks the tag
+  against `package.json`, and writes the GitHub Release notes from `CHANGELOG.md`
+  (`scripts/release-notes.mjs`). No credentials: the default `GITHUB_TOKEN` is enough.
+- No npm package, deliberately. The skill installs from git (`/plugin marketplace add`, `npx skills add`),
+  so a registry entry would only add a global `cdp` binary plus a credential to rotate and a version to
+  keep in sync. The CLI-only section documents the clone route instead.
+- `workflow_dispatch` re-runs the release for an existing tag and refreshes its notes.
 
 ## [1.3.0] - 2026-11-18
 

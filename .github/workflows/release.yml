@@ -1,13 +1,10 @@
 name: release
 
-# Packaging is CI-only: a tag push runs the tests, publishes to npm and writes the
-# GitHub Release. Nobody runs `npm publish` or `gh release create` by hand.
-#
-# Authentication is the one setup step that cannot live in a workflow file:
-#   npm → package Settings → Trusted Publisher → GitHub Actions:
-#         user yidasanqian, repo chrome-cdp-kit, workflow release.yml
-#   (alternative: an NPM_TOKEN secret, which this workflow also accepts.)
-# With neither, the publish step fails with 401/403 and says so in the log.
+# Packaging is CI-only: a tag push runs the tests and writes the GitHub Release.
+# No manual `gh release create`, and deliberately no npm publish — the skill is
+# consumed from git by `/plugin marketplace add` and `npx skills add`, so a
+# registry package would only add a credential to rotate and a version to keep in
+# sync. Nothing here depends on npm.
 
 on:
   push:
@@ -15,12 +12,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: existing tag to publish
+        description: existing tag to release
         required: true
 
 permissions:
   contents: write
-  id-token: write
 
 concurrency:
   group: release-${{ inputs.tag || github.ref }}
@@ -48,46 +44,10 @@ jobs:
             echo "::error::tag $TAG does not match package.json v$version"
             exit 1
           fi
-          echo "publishing chrome-cdp-kit v$version from $TAG"
-
-  npm:
-    name: publish to npm
-    needs: verify
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag || github.ref_name }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-      # Trusted publishing (OIDC) needs npm 11.5+; the runner image ships older.
-      - run: npm install -g npm@latest
-      - name: already on the registry?
-        id: guard
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          if npm view "chrome-cdp-kit@$version" version >/dev/null 2>&1; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "chrome-cdp-kit@$version is already published; skipping"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: npm publish
-        if: steps.guard.outputs.skip == 'false'
-        env:
-          # Empty unless the NPM_TOKEN secret exists. Empty is the intended path:
-          # npm exchanges the GitHub OIDC token for a short-lived credential, so
-          # there is no long-lived secret to rotate, and --provenance attaches a
-          # signed attestation that the tarball came from this commit.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance
 
   release:
     name: github release
-    needs: npm
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

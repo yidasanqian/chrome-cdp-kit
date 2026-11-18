@@ -93,22 +93,17 @@ npx skills remove chrome-cdp
 
 ### 只用 CLI
 
-`cdp` 命令随 npm 包一起发：
-
-```bash
-npm i -g chrome-cdp-kit           # 把 cdp 放进 PATH
-npx -p chrome-cdp-kit cdp doctor  # 或者不全局安装直接跑
-```
-
-npm 包名是 `chrome-cdp-kit`，**不是** `cdp`——registry 上的 `cdp` 属于另一个无关的包，`npx cdp` 会跑到那个包上，不是这个工具。
-
-想用克隆的代码也可以，没有构建步骤：
+仓库自带 `cdp` 命令；装好 skill 之后，同一个文件就在 `skills/chrome-cdp/scripts/cdp.mjs`。想把它放进 PATH，没有构建步骤：
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
 npm link            # 可选：把 cdp 放进 PATH
+cdp doctor
 ```
+
+不发 npm 包，原因写在 [docs/UPSTREAM.md](docs/UPSTREAM.md#release)。
+
 
 ## 打开一次远程调试
 
