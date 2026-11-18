@@ -182,10 +182,9 @@ Chrome/Edge 在一条新的 CDP 连接附加到**有数据的 profile** 时会�
 
 - 上游基线与同步流程：[docs/UPSTREAM.md](docs/UPSTREAM.md)
 - 登录态搬运的设计与协议调用：[docs/AUTH-TRANSFER.md](docs/AUTH-TRANSFER.md)
-- 上游 issue 修复、根因与 PR 计划：[docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)
 - 故障排查：[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - 引流手册与文案：[docs/TRAFFIC.md](docs/TRAFFIC.md)
-- 发布：打 tag 即由 CI 发 npm 并生成 GitHub Release，见 [docs/UPSTREAM.md](docs/UPSTREAM.md)
+- 发布：打 tag 即由 CI 生成 GitHub Release，见 [docs/UPSTREAM.md](docs/UPSTREAM.md)
 - 计划：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 变更：[CHANGELOG.md](CHANGELOG.md)
 

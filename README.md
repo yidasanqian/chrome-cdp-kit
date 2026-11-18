@@ -182,10 +182,9 @@ No tool can give you "independent instance + live logins + zero consent" at once
 
 - Upstream baseline, patch surface and sync procedure: [docs/UPSTREAM.md](docs/UPSTREAM.md)
 - Auth-transfer design and protocol calls: [docs/AUTH-TRANSFER.md](docs/AUTH-TRANSFER.md)
-- Upstream issue fixes, root causes and PR plan: [docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - Promotion playbook and post drafts: [docs/TRAFFIC.md](docs/TRAFFIC.md)
-- Release: a tag push makes CI publish to npm and write the GitHub Release — [docs/UPSTREAM.md](docs/UPSTREAM.md)
+- Release: a tag push makes CI write the GitHub Release notes — [docs/UPSTREAM.md](docs/UPSTREAM.md)
 - Planned work: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Changes: [CHANGELOG.md](CHANGELOG.md)
 
