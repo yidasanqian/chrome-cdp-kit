@@ -10,8 +10,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test",
-    "check": "node --check skills/chrome-cdp/scripts/cdp.mjs && node --test test"
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check skills/chrome-cdp/scripts/cdp.mjs && node --test test/*.test.mjs"
   },
   "files": [
     "skills/",
