@@ -2,7 +2,36 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/), SemVer on top of the upstream version.
 
+## [1.3.0] - 2026-11-18
+
+Upstream baseline unchanged: chrome-cdp-skill **v1.1.0** (`ffea76a2`). This release ports fixes for three open upstream issues.
+
+### Added
+
+- `cdp drag <target> <x1> <y1> <x2> <y2> [steps]` — press -> interpolated `mouseMoved` -> release, for canvas scenes (upstream [#24](https://github.com/pasky/chrome-cdp-skill/issues/24)).
+- `CDP_DAEMON_TCP=1` — per-tab daemon over loopback TCP, gated by a token in the port file, for sandboxes that deny `AF_UNIX` bind with `EPERM` (upstream [#19](https://github.com/pasky/chrome-cdp-skill/issues/19)).
+- `skills/chrome-cdp/scripts/kit/ipc.mjs` — daemon addressing, endpoint file format, transport switch.
+- `docs/UPSTREAM-FIXES.md`, `docs/TROUBLESHOOTING.md`, `docs/TRAFFIC.md`, `docs/traffic/` (issue replies, PR bodies, launch copy).
+- `test/upstream-fixes.test.mjs` — 7 tests for the three fixes (22 total).
+
+### Fixed
+
+- Chromium 128+ handshake rejection no longer surfaces as `WebSocket error: error`: the CLI probes `/json/version` and names `--remote-allow-origins=*` (upstream [#40](https://github.com/pasky/chrome-cdp-skill/issues/40)).
+- `CDP#connect` rejects when the rejected upgrade arrives as a bare `close`; a handshake that never opens used to leave the promise unsettled, so `cdp list` hung instead of printing the cause.
+- `cdp launch` / `cdp auth sync` pass `--remote-allow-origins=*`, so the browsers they start are reachable.
+
+### Changed
+
+- `launchArgs()` exported from `kit/launch.mjs` so launch flags are testable.
+- `docs/UPSTREAM.md` patch surface lists the three `upstream #NN` hunks.
+
+### Compatibility
+
+- Upstream commands keep their behaviour, arguments and daemon model; the TCP transport is opt-in and the default path is unchanged.
+- No new runtime dependencies; Node 22+.
+
 ## [1.2.0] - 2026-11-18
+
 
 Upstream baseline: chrome-cdp-skill **v1.1.0** (`ffea76a2`, 2026-06-28).
 

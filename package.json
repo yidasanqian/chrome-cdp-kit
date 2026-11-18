@@ -1,6 +1,6 @@
 {
   "name": "chrome-cdp-kit",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Chrome DevTools Protocol CLI: drive the live browser and transfer login state into an independent profile (built on chrome-cdp-skill).",
   "type": "module",
   "bin": {
@@ -37,7 +37,12 @@
     "cookies",
     "localstorage",
     "agent",
-    "edge"
+    "edge",
+    "chrome-devtools-protocol",
+    "browser-automation",
+    "ai-agent",
+    "claude-code",
+    "login-transfer"
   ],
   "license": "MIT",
   "repository": {
