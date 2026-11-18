@@ -2,12 +2,29 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml)
+[![Node 22+](https://img.shields.io/badge/node-%E2%89%A522-3c873a)](https://nodejs.org)
+[![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![upstream fixes](https://img.shields.io/badge/upstream%20fixes-%2319%20%2324%20%2340-brightgreen)](docs/UPSTREAM-FIXES.md)
+
 A Chrome DevTools Protocol toolkit for agents and humans:
 
 - drive the **live browser you already use** — open tabs, logged-in sessions, current page state;
 - hand that **login state to a new, independent browser profile** — without closing the first browser, without copying its profile directory.
 
 Built on [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0** (`ffea76a2`, MIT). The upstream code stays intact; every addition lives in `skills/chrome-cdp/scripts/kit/`. Existing upstream commands, arguments and scripts keep working.
+
+## Upstream issues fixed here
+
+Open issues in [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill/issues) that this repo already answers, each with the command that proves it:
+
+| Upstream issue | What this repo does | Where | Verify |
+|---|---|---|---|
+| [#40](https://github.com/pasky/chrome-cdp-skill/issues/40) Chromium 128+ drops non-allowlisted WebSocket upgrades | launched browsers get `--remote-allow-origins=*`; a rejected handshake now names the flag instead of `WebSocket error: error` | `kit/launch.mjs`, `cdp.mjs` | `npm test -- --test-name-pattern=allowlist` |
+| [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) no mouse drag on canvas / three.js scenes | `cdp drag <target> x1 y1 x2 y2 [steps]` — press, interpolated moves, release | `cdp.mjs` | `cdp drag <target> 100 100 400 300 20` |
+| [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) `listen EPERM` on the daemon socket in sandboxes | `CDP_DAEMON_TCP=1` runs the same daemon protocol on a loopback port, gated by a token | `kit/ipc.mjs`, `cdp.mjs` | `CDP_DAEMON_TCP=1 cdp snap <target>` |
+
+Root causes, trade-offs and the upstream-PR plan: [docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md). Failures you are likely to hit: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Compared with the original
 
@@ -18,7 +35,7 @@ Built on [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0*
 | Login-state transfer (cookies + `localStorage`) | — | `cdp auth export / import / sync` |
 | Launch an independent profile | — | `cdp launch --profile DIR` |
 | Diagnostics | — | `cdp doctor` |
-| Automated tests | none | 14 (`node --test`) |
+| Automated tests | none | 22 (`node --test`) |
 | CI | none | GitHub Actions, Ubuntu + Windows |
 | Docs | README + SKILL | + upstream policy, auth-transfer design, roadmap, changelog |
 | Runtime dependencies | none, Node 22+ | same |
@@ -66,6 +83,11 @@ Edge: `edge://inspect` → the remote-debugging switch (where the version provid
 
 If the browser writes `DevToolsActivePort` somewhere non-standard, set `CDP_PORT_FILE` to its full path.
 
+**Chromium 128+** enforces a WebSocket Origin allowlist that this toggle does not populate. A browser you start yourself needs `--remote-allow-origins=*` (or one specific origin) on its command line; browsers started by `cdp launch` / `cdp auth sync` already get the flag. The CLI now names this cause instead of printing a bare handshake error — see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
+**Sandboxed environments** that deny `AF_UNIX` `bind()` (containers, cloud IDEs) fail with `listen EPERM`: set `CDP_DAEMON_TCP=1` and the per-tab daemon uses a loopback port instead.
+
+
 ## Upstream commands
 
 ```bash
@@ -78,6 +100,7 @@ cdp nav    <target> https://...
 cdp net    <target>
 cdp click  <target> "selector"
 cdp clickxy <target> <x> <y>
+cdp drag   <target> <x1> <y1> <x2> <y2> [steps]   # press → move → release (canvas)
 cdp type   <target> "text"
 cdp loadall <target> "selector" [ms]
 cdp evalraw <target> <method> [json]
@@ -143,11 +166,14 @@ No tool can give you "independent instance + live logins + zero consent" at once
 
 - Upstream baseline, patch surface and sync procedure: [docs/UPSTREAM.md](docs/UPSTREAM.md)
 - Auth-transfer design and protocol calls: [docs/AUTH-TRANSFER.md](docs/AUTH-TRANSFER.md)
+- Upstream issue fixes, root causes and PR plan: [docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)
+- Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- Promotion playbook and post drafts: [docs/TRAFFIC.md](docs/TRAFFIC.md)
 - Planned work: [docs/ROADMAP.md](docs/ROADMAP.md)
 - Changes: [CHANGELOG.md](CHANGELOG.md)
 
 ```bash
-npm test        # 14 tests, no dependencies
+npm test        # 22 tests, no dependencies
 npm run check   # syntax + tests
 ```
 

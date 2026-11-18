@@ -2,6 +2,11 @@
 
 [English](README.md) · **简体中文**
 
+[![CI](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/yidasanqian/chrome-cdp-kit/actions/workflows/ci.yml)
+[![Node 22+](https://img.shields.io/badge/node-%E2%89%A522-3c873a)](https://nodejs.org)
+[![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![upstream fixes](https://img.shields.io/badge/upstream%20fixes-%2319%20%2324%20%2340-brightgreen)](docs/UPSTREAM-FIXES.md)
+
 面向 agent 与人类的 Chrome DevTools Protocol 工具集：
 
 - 操作**你正在用的浏览器**——已开的标签页、已登录的会话、当前页面状态；
@@ -9,7 +14,20 @@
 
 基于 [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0**（`ffea76a2`，MIT）。上游代码保持原样，新增功能全部在 `skills/chrome-cdp/scripts/kit/`；上游命令、参数与脚本调用方式完全兼容。
 
+## 已修复的上游 issue
+
+[chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill/issues) 还开着的 issue，本项目已经有答案，每条都附验证命令：
+
+| 上游 issue | 本项目怎么处理 | 位置 | 验证 |
+|---|---|---|---|
+| [#40](https://github.com/pasky/chrome-cdp-skill/issues/40) Chromium 128+ 会丢弃不在白名单的 WebSocket 握手 | 本项目启动的浏览器带 `--remote-allow-origins=*`；握手被拒时不再只报 `WebSocket error: error`，而是直接点明该参数 | `kit/launch.mjs`、`cdp.mjs` | `npm test -- --test-name-pattern=allowlist` |
+| [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) canvas / three.js 场景无法拖拽 | `cdp drag <target> x1 y1 x2 y2 [steps]`——按下、插值移动、松开 | `cdp.mjs` | `cdp drag <target> 100 100 400 300 20` |
+| [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) 沙箱里 daemon socket `listen EPERM` | 设 `CDP_DAEMON_TCP=1`，同一套 daemon 协议改走 loopback 端口，用 token 鉴权 | `kit/ipc.mjs`、`cdp.mjs` | `CDP_DAEMON_TCP=1 cdp snap <target>` |
+
+根因、取舍与上游 PR 计划：[docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)；常见故障：[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+
 ## 与原版对比
+
 
 | | [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) | chrome-cdp-kit（本项目） |
 |---|---|---|
@@ -18,7 +36,7 @@
 | 登录态搬运（cookie + `localStorage`） | — | `cdp auth export / import / sync` |
 | 启动独立 profile | — | `cdp launch --profile DIR` |
 | 诊断 | — | `cdp doctor` |
-| 自动化测试 | 无 | 14 个（`node --test`） |
+| 自动化测试 | 无 | 22 个（`node --test`） |
 | CI | 无 | GitHub Actions，Ubuntu + Windows |
 | 文档 | README + SKILL | 另加上游策略、登录态搬运设计、路线图、变更日志 |
 | 运行时依赖 | 无，Node 22+ | 相同 |
@@ -66,6 +84,11 @@ Edge：`edge://inspect` 里的远程调试开关（版本提供时）。
 
 如果浏览器把 `DevToolsActivePort` 写在非标准位置，用 `CDP_PORT_FILE` 指向完整路径。
 
+**Chromium 128+** 的 WebSocket 有 Origin 白名单，上面那个开关不会填它。自己启动的浏览器要在命令行加 `--remote-allow-origins=*`（或某一个具体 origin）；`cdp launch` / `cdp auth sync` 启动的浏览器已自带该参数。CLI 现在会直接点明这个原因，不再只吐一句握手错误，见 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)。
+
+**沙箱环境**（容器、云 IDE）禁止 `AF_UNIX` `bind()` 时会报 `listen EPERM`：设 `CDP_DAEMON_TCP=1`，每标签页 daemon 改走 loopback 端口。
+
+
 ## 上游命令
 
 ```bash
@@ -78,6 +101,7 @@ cdp nav    <target> https://...
 cdp net    <target>
 cdp click  <target> "selector"
 cdp clickxy <target> <x> <y>
+cdp drag   <target> <x1> <y1> <x2> <y2> [steps]   # 按下 → 移动 → 松开（canvas 拖拽）
 cdp type   <target> "text"
 cdp loadall <target> "selector" [ms]
 cdp evalraw <target> <method> [json]
@@ -143,11 +167,14 @@ Chrome/Edge 在一条新的 CDP 连接附加到**有数据的 profile** 时会�
 
 - 上游基线与同步流程：[docs/UPSTREAM.md](docs/UPSTREAM.md)
 - 登录态搬运的设计与协议调用：[docs/AUTH-TRANSFER.md](docs/AUTH-TRANSFER.md)
+- 上游 issue 修复、根因与 PR 计划：[docs/UPSTREAM-FIXES.md](docs/UPSTREAM-FIXES.md)
+- 故障排查：[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- 引流手册与文案：[docs/TRAFFIC.md](docs/TRAFFIC.md)
 - 计划：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 变更：[CHANGELOG.md](CHANGELOG.md)
 
 ```bash
-npm test        # 14 个测试，无依赖
+npm test        # 22 个测试，无依赖
 npm run check   # 语法 + 测试
 ```
 

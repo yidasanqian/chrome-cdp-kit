@@ -55,6 +55,7 @@ scripts/cdp.mjs nav     <target> <url>         # navigate and wait for load
 scripts/cdp.mjs net     <target>               # resource timing entries
 scripts/cdp.mjs click   <target> <selector>    # click element by CSS selector
 scripts/cdp.mjs clickxy <target> <x> <y>       # click at CSS pixel coords
+scripts/cdp.mjs drag    <target> <x1> <y1> <x2> <y2> [steps]  # press -> move -> release (canvas drag)
 scripts/cdp.mjs type    <target> <text>         # Input.insertText at current focus; works in cross-origin iframes unlike eval
 scripts/cdp.mjs loadall <target> <selector> [ms]  # click "load more" until gone (default 1500ms between clicks)
 scripts/cdp.mjs evalraw <target> <method> [json]  # raw CDP command passthrough
@@ -77,6 +78,14 @@ CSS px = screenshot image px / DPR
 - Prefer `snap --compact` over `html` for page structure.
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Chrome shows an "Allow debugging" modal once per tab on first access. A background daemon keeps the session alive so subsequent commands need no further approval. Daemons auto-exit after 20 minutes of inactivity.
+
+## Troubleshooting
+
+- `WebSocket error: error` / `WebSocket rejected ...`: Chromium 128+ origin allowlist. Relaunch the browser with `--remote-allow-origins=*`; `launch` / `auth sync` already pass it.
+- `listen EPERM ... cdp-*.sock`: the sandbox denies Unix socket `bind()`. Set `CDP_DAEMON_TCP=1`; the daemon then uses a loopback port published with a token in `<runtime>/cdp-<id>.port`.
+- Canvas drag does nothing: use `drag`, not `clickxy` — a click sends no intermediate `mouseMoved` events with `buttons: 1`.
+- An Allow prompt on every command: each tab gets its own daemon. `auth` / `launch` / `doctor` use one browser-level connection per run instead.
+
 
 ## Kit additions (chrome-cdp-kit)
 

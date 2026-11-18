@@ -34,6 +34,22 @@ Two hunks in `cdp.mjs`, both marked `chrome-cdp-kit`:
 
 Everything else lives in `skills/chrome-cdp/scripts/kit/`. Keeping the patch surface this small is the point: upstream merges are mechanical.
 
+### Upstream issue fix hunks (v1.3.0)
+
+Three more hunks in `cdp.mjs`, each marked `// chrome-cdp-kit fix for upstream #NN`. They stay
+upstream-shaped on purpose: each one can be proposed as its own PR (see `docs/UPSTREAM-FIXES.md`
+and `docs/traffic/pr-*.body.md`).
+
+| Hunk | Issue | Surface |
+|---|---|---|
+| `connectError()` + `WebSocket.onerror` | [#40](https://github.com/pasky/chrome-cdp-skill/issues/40) | ~20 lines |
+| `dragStr()` + dispatch + USAGE + `NEEDS_TARGET` | [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) | ~25 lines |
+| `DAEMON_TCP`, `portPath`, `readDaemonEndpoint`, `connectToDaemon`, token check | [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) | ~45 lines + `kit/ipc.mjs` |
+
+A conflict during `git merge upstream/main` is resolved by keeping upstream's version and
+re-applying the marked hunk semantics, not by copying this repository wholesale.
+
+
 ## Sync procedure
 
 ```bash
@@ -80,4 +96,5 @@ Upstream has open issues that may already be fixed here. When triaging:
 
 1. Reproduce on this checkout (`npm test`, then a live smoke).
 2. If the fix is generic, keep it upstream-shaped and mark the hunk — it may be portable back as a PR.
+   Status of every upstream issue, with the command that proves each fix: `docs/UPSTREAM-FIXES.md`.
 3. If it is specific to the new commands (auth transfer, doctor), keep it under `scripts/kit/`.
