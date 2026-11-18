@@ -1,0 +1,22 @@
+{
+  "name": "chrome-cdp-kit",
+  "description": "Drive the live Chrome session over CDP, then hand its login state to an independent profile.",
+  "owner": {
+    "name": "yidasanqian"
+  },
+  "metadata": {
+    "description": "chrome-cdp-kit marketplace",
+    "version": "1.3.0"
+  },
+  "plugins": [
+    {
+      "name": "chrome-cdp",
+      "description": "Agent skill for the Chrome DevTools Protocol: drive the browser you are already logged into, transfer cookies and localStorage into a dedicated profile, and diagnose debugging ports.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/chrome-cdp"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: chrome-cdp
-description: Interact with local Chrome browser session (only on explicit user approval after being asked to inspect, debug, or interact with a page open in Chrome)
+description: Interact with the local Chrome/Edge session over CDP — list tabs, screenshot, snapshot, drive canvas drags, and transfer cookies plus localStorage into an independent browser profile (only on explicit user approval after being asked to inspect, debug, or interact with a page open in Chrome)
 ---
 
 # Chrome CDP
