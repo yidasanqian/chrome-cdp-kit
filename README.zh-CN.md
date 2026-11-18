@@ -93,15 +93,22 @@ npx skills remove chrome-cdp
 
 ### 只用 CLI
 
-仓库另外提供 `cdp` 命令，供 agent 之外使用。直接用克隆即可，没有全局安装步骤：
+`cdp` 命令随 npm 包一起发：
+
+```bash
+npm i -g chrome-cdp-kit           # 把 cdp 放进 PATH
+npx -p chrome-cdp-kit cdp doctor  # 或者不全局安装直接跑
+```
+
+npm 包名是 `chrome-cdp-kit`，**不是** `cdp`——registry 上的 `cdp` 属于另一个无关的包，`npx cdp` 会跑到那个包上，不是这个工具。
+
+想用克隆的代码也可以，没有构建步骤：
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
 npm link            # 可选：把 cdp 放进 PATH
-cdp doctor
 ```
-
 
 ## 打开一次远程调试
 

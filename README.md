@@ -92,15 +92,23 @@ Nothing else is left behind: no autostart, no global config, no PATH entry. Live
 
 ### CLI only
 
-The repo also ships a `cdp` bin for use outside an agent. Clone it; there is no global install step:
+The `cdp` binary ships inside the npm package:
+
+```bash
+npm i -g chrome-cdp-kit           # puts `cdp` on PATH
+npx -p chrome-cdp-kit cdp doctor  # or run it without a global install
+```
+
+The npm name is `chrome-cdp-kit`, **not** `cdp` — a different, unrelated package owns `cdp` on the
+registry, so `npx cdp` runs that one instead of this tool.
+
+Prefer a checkout? There is no build step:
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
 npm link            # optional: puts `cdp` on PATH
-cdp doctor
 ```
-
 
 ## Enable debugging once
 
