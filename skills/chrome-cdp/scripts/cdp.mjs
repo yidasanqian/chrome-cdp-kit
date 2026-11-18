@@ -12,6 +12,7 @@ import { homedir } from 'os';
 import { resolve } from 'path';
 import { spawn } from 'child_process';
 import net from 'net';
+import { daemonPortFile, daemonSocket, formatDaemonEndpoint, parseDaemonEndpoint, tcpDaemonEnabled } from './kit/ipc.mjs';
 
 const TIMEOUT = 15000;
 const NAVIGATION_TIMEOUT = 30000;
@@ -29,10 +30,24 @@ const RUNTIME_DIR = IS_WINDOWS
 try { mkdirSync(RUNTIME_DIR, { recursive: true, mode: 0o700 }); } catch {}
 const PAGES_CACHE = resolve(RUNTIME_DIR, 'pages.json');
 
+// chrome-cdp-kit fix for upstream #19 — sandboxes that deny AF_UNIX bind with
+// EPERM get the daemon on a loopback port instead (CDP_DAEMON_TCP=1).
+const DAEMON_TCP = tcpDaemonEnabled();
+
 function sockPath(targetId) {
-  return IS_WINDOWS
-    ? `\\\\.\\pipe\\cdp-${targetId}`
-    : resolve(RUNTIME_DIR, `cdp-${targetId}.sock`);
+  return daemonSocket(RUNTIME_DIR, targetId, IS_WINDOWS);
+}
+
+function portPath(targetId) {
+  return daemonPortFile(RUNTIME_DIR, targetId);
+}
+
+function readDaemonEndpoint(targetId) {
+  try {
+    return parseDaemonEndpoint(readFileSync(portPath(targetId), 'utf8'));
+  } catch {
+    return null;
+  }
 }
 
 function getWsUrl() {
@@ -117,15 +132,44 @@ function getDisplayPrefixLength(targetIds) {
 // CDP WebSocket client
 // ---------------------------------------------------------------------------
 
+// chrome-cdp-kit fix for upstream #40 — Chromium 128+ silently drops WebSocket
+// upgrades it has not allowlisted while /json/version keeps answering, so this
+// probe tells "missing --remote-allow-origins" apart from "debug port is dead".
+async function connectError(wsUrl, cause) {
+  const origin = wsUrl.replace(/^ws/, 'http').replace(/\/devtools\/.*$/, '');
+  try {
+    const res = await fetch(origin + '/json/version', { signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      return new Error(
+        'WebSocket rejected (' + cause + ') while ' + origin + '/json/version still answers. ' +
+        'Chromium 128+ drops WebSocket upgrades from clients it does not allowlist: ' +
+        'relaunch the browser with --remote-allow-origins=* (or the exact origin).',
+      );
+    }
+  } catch {}
+  return new Error('WebSocket error: ' + cause);
+}
+
 class CDP {
   #ws; #id = 0; #pending = new Map(); #eventHandlers = new Map(); #closeHandlers = [];
 
   async connect(wsUrl) {
     return new Promise((res, rej) => {
       this.#ws = new WebSocket(wsUrl);
-      this.#ws.onopen = () => res();
-      this.#ws.onerror = (e) => rej(new Error('WebSocket error: ' + (e.message || e.type)));
-      this.#ws.onclose = () => this.#closeHandlers.forEach(h => h());
+      let settled = false;
+      const fail = (cause) => {
+        if (settled) return;
+        settled = true;
+        connectError(wsUrl, cause).then(rej);
+      };
+      this.#ws.onopen = () => { settled = true; res(); };
+      this.#ws.onerror = (e) => fail(e.message || e.type);
+      // A rejected upgrade can arrive as a bare close (no error event); without
+      // this the connect promise never settles and the CLI hangs (upstream #40).
+      this.#ws.onclose = () => {
+        fail('connection closed before the handshake completed');
+        this.#closeHandlers.forEach(h => h());
+      };
       this.#ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.id && this.#pending.has(msg.id)) {
@@ -433,6 +477,27 @@ async function clickXyStr(cdp, sid, x, y) {
   return `Clicked at CSS (${cx}, ${cy})`;
 }
 
+// Drag across CSS pixel coordinates (upstream #24) — canvas/three.js scenes need
+// press → intermediate moves with buttons=1 → release, not a click.
+async function dragStr(cdp, sid, args) {
+  const [x1, y1, x2, y2] = args.slice(0, 4).map(v => parseFloat(v));
+  if ([x1, y1, x2, y2].some(v => isNaN(v))) {
+    throw new Error('usage: drag <target> <x1> <y1> <x2> <y2> [steps]');
+  }
+  const steps = Math.min(50, Math.max(1, parseInt(args[4], 10) || 10));
+  const base = { button: 'left', clickCount: 1, modifiers: 0 };
+  const at = (x, y, type, buttons) => ({ ...base, x, y, type, buttons });
+  await cdp.send('Input.dispatchMouseEvent', at(x1, y1, 'mouseMoved', 0), sid);
+  await cdp.send('Input.dispatchMouseEvent', at(x1, y1, 'mousePressed', 1), sid);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    await cdp.send('Input.dispatchMouseEvent',
+      at(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 'mouseMoved', 1), sid);
+  }
+  await cdp.send('Input.dispatchMouseEvent', at(x2, y2, 'mouseReleased', 0), sid);
+  return `Dragged CSS (${x1}, ${y1}) → (${x2}, ${y2}) in ${steps} steps`;
+}
+
 // Type text using Input.insertText (works in cross-origin iframes, unlike eval)
 async function typeStr(cdp, sid, text) {
   if (text == null || text === '') throw new Error('text required');
@@ -485,6 +550,8 @@ async function evalRawStr(cdp, sid, method, paramsJson) {
 
 async function runDaemon(targetId) {
   const sp = sockPath(targetId);
+  // chrome-cdp-kit: published with the loopback port in TCP mode (upstream #19).
+  const token = crypto.randomUUID();
 
   const cdp = new CDP();
   try {
@@ -511,6 +578,7 @@ async function runDaemon(targetId) {
     alive = false;
     server.close();
     if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
+    if (DAEMON_TCP) try { unlinkSync(portPath(targetId)); } catch {}
     cdp.close();
     process.exit(0);
   }
@@ -557,6 +625,7 @@ async function runDaemon(targetId) {
         case 'net': case 'network': result = await netStr(cdp, sessionId); break;
         case 'click': result = await clickStr(cdp, sessionId, args[0]); break;
         case 'clickxy': result = await clickXyStr(cdp, sessionId, args[0], args[1]); break;
+        case 'drag': result = await dragStr(cdp, sessionId, args); break;
         case 'type': result = await typeStr(cdp, sessionId, args[0]); break;
         case 'loadall': result = await loadAllStr(cdp, sessionId, args[0], args[1] ? parseInt(args[1]) : 1500); break;
         case 'evalraw': result = await evalRawStr(cdp, sessionId, args[0], args[1]); break;
@@ -589,6 +658,12 @@ async function runDaemon(targetId) {
           conn.write(JSON.stringify({ ok: false, error: 'Invalid JSON request', id: null }) + '\n');
           continue;
         }
+        // A loopback port has no filesystem permissions to inherit, so the
+        // token in the port file is the only gate (upstream #19).
+        if (DAEMON_TCP && req.token !== token) {
+          conn.write(JSON.stringify({ ok: false, error: 'unauthorized', id: req.id ?? null }) + '\n');
+          continue;
+        }
         handleCommand(req).then((res) => {
           const payload = JSON.stringify({ ...res, id: req.id }) + '\n';
           if (res.stopAfter) conn.end(payload, shutdown);
@@ -604,25 +679,45 @@ async function runDaemon(targetId) {
   });
 
   if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-  server.listen(sp);
+  try { unlinkSync(portPath(targetId)); } catch {}
+  if (DAEMON_TCP) {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    writeFileSync(portPath(targetId), formatDaemonEndpoint({ port: server.address().port, token }), { mode: 0o600 });
+  } else {
+    server.listen(sp);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // CLI ↔ daemon communication
 // ---------------------------------------------------------------------------
 
-function connectToSocket(sp) {
+function connectToSocket(dest) {
   return new Promise((resolve, reject) => {
-    const conn = net.connect(sp);
+    const conn = net.connect(dest);
     conn.on('connect', () => resolve(conn));
     conn.on('error', reject);
+  });
+}
+
+// TCP mode discovers the daemon through the port file instead of a socket path.
+function connectToDaemon(targetId) {
+  if (!DAEMON_TCP) return connectToSocket(sockPath(targetId));
+  const endpoint = readDaemonEndpoint(targetId);
+  if (!endpoint) return Promise.reject(new Error('daemon endpoint not published yet'));
+  return connectToSocket({ port: endpoint.port, host: '127.0.0.1' }).then((conn) => {
+    conn.cdpToken = endpoint.token;
+    return conn;
   });
 }
 
 async function getOrStartTabDaemon(targetId) {
   const sp = sockPath(targetId);
   // Try existing daemon
-  try { return await connectToSocket(sp); } catch {}
+  try { return await connectToDaemon(targetId); } catch {}
 
   // Clean stale socket
   if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
@@ -637,7 +732,7 @@ async function getOrStartTabDaemon(targetId) {
   // Wait for socket (includes time for user to click Allow)
   for (let i = 0; i < DAEMON_CONNECT_RETRIES; i++) {
     await sleep(DAEMON_CONNECT_DELAY);
-    try { return await connectToSocket(sp); } catch {}
+    try { return await connectToDaemon(targetId); } catch {}
   }
   throw new Error('Daemon failed to start — did you click Allow in Chrome?');
 }
@@ -690,6 +785,7 @@ function sendCommand(conn, req) {
     conn.on('end', onEnd);
     conn.on('close', onClose);
     req.id = 1;
+    if (conn.cdpToken) req.token = conn.cdpToken;
     conn.write(JSON.stringify(req) + '\n');
   });
 }
@@ -708,7 +804,7 @@ async function stopDaemons(targetPrefix) {
   for (const targetId of targets) {
     const sp = sockPath(targetId);
     try {
-      const conn = await connectToSocket(sp);
+      const conn = await connectToDaemon(targetId);
       await sendCommand(conn, { cmd: 'stop' });
     } catch {
       if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
@@ -733,6 +829,8 @@ Usage: cdp <command> [args]
   net   <target>                    Network performance entries
   click   <target> <selector>       Click an element by CSS selector
   clickxy <target> <x> <y>          Click at CSS pixel coordinates (see coordinate note below)
+  drag    <target> <x1> <y1> <x2> <y2> [steps]
+                                    Press, move and release across CSS pixels (canvas drag)
   type    <target> <text>           Type text at current focus via Input.insertText
                                     Works in cross-origin iframes unlike eval-based approaches
   loadall <target> <selector> [ms]  Repeatedly click a "load more" button until it disappears
@@ -777,13 +875,13 @@ DAEMON IPC (for advanced use / scripting)
     Response: {"id":<number>, "ok":true,  "result":"<string>"}
            or {"id":<number>, "ok":false, "error":"<message>"}
   Commands mirror the CLI: snap, eval, shot, html, nav, net, click, clickxy,
-  type, loadall, evalraw, stop. Use evalraw to send arbitrary CDP methods.
+  type, loadall, drag, evalraw, stop. Use evalraw to send arbitrary CDP methods.
   The socket disappears after 20 min of inactivity or when the tab closes.
 `;
 
 const NEEDS_TARGET = new Set([
   'snap','snapshot','eval','shot','screenshot','html','nav','navigate',
-  'net','network','click','clickxy','type','loadall','evalraw',
+  'net','network','click','clickxy','drag','type','loadall','evalraw',
 ]);
 
 async function main() {

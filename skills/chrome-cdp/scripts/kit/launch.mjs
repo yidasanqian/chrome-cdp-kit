@@ -5,6 +5,22 @@ import { findBrowserExecutable } from './browsers.mjs';
 import { portFileToWs, waitForPortFile } from './portfile.mjs';
 
 /**
+ * Chromium 128+ enforces a WebSocket Origin allowlist that the inspect toggle
+ * does not populate (upstream #40); a self-launched browser must set the flag.
+ */
+export function launchArgs({ profile, url = 'about:blank', headless = false }) {
+  return [
+    `--user-data-dir=${profile}`,
+    '--remote-debugging-port=0',
+    '--remote-allow-origins=*',
+    '--no-first-run',
+    '--no-default-browser-check',
+    ...(headless ? ['--headless=new'] : []),
+    url,
+  ];
+}
+
+/**
  * Starts a browser on its own profile with an ephemeral debugging port.
  * The process is detached: it keeps running after this CLI exits.
  */
@@ -22,14 +38,7 @@ export async function launchBrowser({
 
   const portFile = join(profile, 'DevToolsActivePort');
   const startedAt = Date.now();
-  const args = [
-    `--user-data-dir=${profile}`,
-    '--remote-debugging-port=0',
-    '--no-first-run',
-    '--no-default-browser-check',
-    ...(headless ? ['--headless=new'] : []),
-    url,
-  ];
+  const args = launchArgs({ profile, url, headless });
 
   const child = spawn(executable, args, { detached: true, stdio: 'ignore', windowsHide: false });
   child.unref();
