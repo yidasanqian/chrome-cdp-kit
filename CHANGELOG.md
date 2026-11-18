@@ -2,7 +2,17 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/), SemVer on top of the upstream version.
 
+## [Unreleased]
+
+### Changed
+
+- npm publish and the GitHub Release are CI-only (`.github/workflows/release.yml`): a tag push runs the
+  tests, checks the tag against `package.json`, publishes with `--provenance`, then writes the Release
+  notes from `CHANGELOG.md`. `scripts/release-notes.mjs` extracts that section.
+- `workflow_dispatch` republishes an existing tag; the npm step skips a version that is already published.
+
 ## [1.3.0] - 2026-11-18
+
 
 Upstream baseline unchanged: chrome-cdp-skill **v1.1.0** (`ffea76a2`). This release ports fixes for three open upstream issues.
 

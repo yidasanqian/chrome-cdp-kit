@@ -76,10 +76,33 @@ After merging, bump the version (minor for upstream features, patch for fixes), 
 
 ## Release
 
+Publishing is CI-only ([`.github/workflows/release.yml`](../.github/workflows/release.yml)) — nobody runs
+`npm publish` or `gh release create` by hand:
+
 ```bash
-npm test
-git tag v1.3.0 && git push origin v1.3.0
+# 1. bump package.json + .claude-plugin/marketplace.json + CHANGELOG.md in one commit
+git tag v1.4.0 && git push origin v1.4.0
+#    -> npm test -> tag/version agreement -> npm publish (provenance) -> GitHub Release from CHANGELOG
 ```
+
+Republishing an existing tag without touching tags:
+
+```bash
+gh workflow run release.yml -f tag=v1.3.0
+```
+
+The npm step is idempotent: when that version is already on the registry it skips, so a re-run only
+refreshes the release notes. A tag that disagrees with `package.json` fails before anything is published.
+
+**One-time auth, the only part that cannot live in the workflow file** (it is an account setting):
+
+- npm → package **Settings → Trusted Publisher → GitHub Actions**: user `yidasanqian`, repo
+  `chrome-cdp-kit`, workflow `release.yml`. No secret: npm exchanges the GitHub OIDC token for a
+  short-lived credential at publish time, and `--provenance` attaches the signed attestation.
+- Fallback if trusted publishing is unavailable: add an `NPM_TOKEN` secret with publish rights; the
+  workflow passes it as `NODE_AUTH_TOKEN` and the same step succeeds.
+- With neither configured the publish step fails fast with 401/403 and the log names the missing setup.
+
 
 Publishing is opt-in per channel, and each channel has a manifest to keep in sync with `package.json`:
 
