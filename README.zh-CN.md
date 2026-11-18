@@ -57,25 +57,51 @@
 
 ## 安装
 
-**作为 skill**（pi、DSH、Claude Code、Cursor 等）：
+**Claude Code——plugin marketplace**（agent skill 的标准路径）：
 
 ```bash
-pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.2.0
-# 或把 skills/chrome-cdp/ 复制到你的 agent 加载 skill 的目录
+/plugin marketplace add yidasanqian/chrome-cdp-kit
+/plugin install chrome-cdp@chrome-cdp-kit
 ```
 
-如果装过原版 `chrome-cdp` skill，先移除：两者同名。
+**skills CLI 支持的其他 agent**（Codex、Cursor、OpenCode、Copilot 等）：
 
-**作为 CLI：**
+```bash
+npx skills add yidasanqian/chrome-cdp-kit --skill chrome-cdp
+```
+
+加 `-g` 装到所有项目（默认只装当前项目），加 `-a <agent>` 指定 agent。
+
+**pi：**
+
+```bash
+pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0
+```
+
+两条主路径都是原样安装 `skills/chrome-cdp/`：没有构建步骤、不需要 `npm install`、不写全局状态。如果装过原版 `chrome-cdp` skill，先移除：两者同名。
+
+### 卸载
+
+```bash
+/plugin uninstall chrome-cdp@chrome-cdp-kit
+/plugin marketplace remove chrome-cdp-kit
+
+npx skills remove chrome-cdp
+```
+
+没有别的残留：不注册自启动、不写全局配置、不改 PATH。正在运行的每标签页 daemon 空闲 20 分钟后自行退出，`cdp stop` 可立即结束。用 pi 装的，用 pi 自己的包管理命令移除。
+
+### 只用 CLI
+
+仓库另外提供 `cdp` 命令，供 agent 之外使用。直接用克隆即可，没有全局安装步骤：
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
-npm link            # 得到 cdp 命令
+npm link            # 可选：把 cdp 放进 PATH
 cdp doctor
 ```
 
-没有构建步骤，也不需要 `npm install`。
 
 ## 打开一次远程调试
 

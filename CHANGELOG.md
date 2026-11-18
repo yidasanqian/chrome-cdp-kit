@@ -23,6 +23,7 @@ Upstream baseline unchanged: chrome-cdp-skill **v1.1.0** (`ffea76a2`). This rele
 ### Changed
 
 - `launchArgs()` exported from `kit/launch.mjs` so launch flags are testable.
+- Install and uninstall follow the ecosystem conventions instead of a bespoke flow: `.claude-plugin/marketplace.json` for `/plugin marketplace add`, and `npx skills add/remove` for other agents. Clone-and-copy instructions moved to a CLI-only subsection.
 - `docs/UPSTREAM.md` patch surface lists the three `upstream #NN` hunks.
 
 ### Compatibility

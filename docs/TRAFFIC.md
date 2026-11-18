@@ -60,7 +60,9 @@ gh issue comment 40 --repo pasky/chrome-cdp-skill --body-file docs/traffic/issue
 | 动作 | 具体做法 | 一次性收益 |
 |---|---|---|
 | npm 发布 | `npm publish`（包名 `chrome-cdp-kit` 基线时未被占用，发布前 `npm view chrome-cdp-kit` 再确认） | `npm search chrome devtools protocol` 长尾 |
-| pi registry | `pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0` 写进 README 顶部 | pi 用户的唯一安装入口 |
+| Claude Code plugin marketplace | `.claude-plugin/marketplace.json` 让 `/plugin marketplace add yidasanqian/chrome-cdp-kit` 生效；和 `anthropics/skills`、`obra/superpowers` 同一套 schema | Claude Code 用户的唯一入口 |
+| skills CLI（skills.sh） | `npx skills add yidasanqian/chrome-cdp-kit --skill chrome-cdp`；skills.sh 会自动收录能发现的 skill | Codex、Cursor、OpenCode 等 80+ agent |
+| pi registry | `pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0` | pi 用户 |
 | GitHub topics | 仓库设置里加 `chrome-devtools-protocol`、`browser-automation`、`ai-agents`、`claude-code`、`skills`、`devtools` | topics 页与站内搜索 |
 | awesome list | 见 [traffic/awesome-lists.md](traffic/awesome-lists.md)，一条一条 PR | 长期外链 |
 | 包 README 首屏 | 第一屏就写「修好 #19 #24 #40」+ 一条 `cdp auth sync` 命令 | 决定 60% 的 star |

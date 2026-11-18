@@ -56,25 +56,51 @@ No breaking changes to upstream commands: `list`, `snap`, `eval`, `shot`, `html`
 
 ## Install
 
-**As a skill** (pi, DSH, Claude Code, Cursor, …):
+**Claude Code — plugin marketplace** (the standard route for agent skills):
 
 ```bash
-pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.2.0
-# or copy skills/chrome-cdp/ into wherever your agent loads skills from
+/plugin marketplace add yidasanqian/chrome-cdp-kit
+/plugin install chrome-cdp@chrome-cdp-kit
 ```
 
-Remove the original `chrome-cdp` skill first if it is installed: both use the skill name `chrome-cdp`.
+**Any agent supported by the skills CLI** (Codex, Cursor, OpenCode, Copilot, …):
 
-**As a CLI:**
+```bash
+npx skills add yidasanqian/chrome-cdp-kit --skill chrome-cdp
+```
+
+Add `-g` to install for every project instead of the current one, and `-a <agent>` to pick the agent.
+
+**pi:**
+
+```bash
+pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0
+```
+
+Both main routes install `skills/chrome-cdp/` as it is in the repo: no build step, no `npm install`, no global state. If the original `chrome-cdp` skill is installed, remove it first — both use the skill name `chrome-cdp`.
+
+### Uninstall
+
+```bash
+/plugin uninstall chrome-cdp@chrome-cdp-kit
+/plugin marketplace remove chrome-cdp-kit
+
+npx skills remove chrome-cdp
+```
+
+Nothing else is left behind: no autostart, no global config, no PATH entry. Live per-tab daemons exit after 20 idle minutes, or right away with `cdp stop`. Installed through pi? Remove it with pi's own package command.
+
+### CLI only
+
+The repo also ships a `cdp` bin for use outside an agent. Clone it; there is no global install step:
 
 ```bash
 git clone https://github.com/yidasanqian/chrome-cdp-kit
 cd chrome-cdp-kit
-npm link            # gives you `cdp`
+npm link            # optional: puts `cdp` on PATH
 cdp doctor
 ```
 
-No build step and no `npm install`.
 
 ## Enable debugging once
 

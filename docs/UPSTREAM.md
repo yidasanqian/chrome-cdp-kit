@@ -81,7 +81,18 @@ npm test
 git tag v1.2.0 && git push origin v1.2.0
 ```
 
-Publishing to npm (`chrome-cdp-kit` was free at baseline time) and to pi (`pi install git:...@v1.2.0`) are separate opt-in steps; do not publish without checking the package contents (`npm pack --dry-run`).
+Publishing is opt-in per channel, and each channel has a manifest to keep in sync with `package.json`:
+
+| Channel | Manifest | Command |
+|---|---|---|
+| Claude Code plugin marketplace | `.claude-plugin/marketplace.json` (`metadata.version`) | `/plugin marketplace add yidasanqian/chrome-cdp-kit` |
+| skills CLI (Codex, Cursor, OpenCode, …) | none — the `skills/<name>/SKILL.md` layout is the contract | `npx skills add yidasanqian/chrome-cdp-kit --skill chrome-cdp` |
+| npm | `package.json` (`files` keeps `skills/`, `docs/`, the readmes) | `npm pack --dry-run` then `npm publish` |
+| pi | `package.json` (`pi.skills`) | `pi install git:github.com/yidasanqian/chrome-cdp-kit@v1.3.0` |
+
+Bump `package.json`, `CHANGELOG.md` and the marketplace `metadata.version` in the same commit; a version skew
+between them is the only thing these channels disagree about.
+
 
 ## Compatibility promise
 
