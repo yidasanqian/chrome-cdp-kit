@@ -1,0 +1,15 @@
+chrome-cdp-kit
+
+Builds on chrome-cdp-skill:
+  https://github.com/pasky/chrome-cdp-skill
+  baseline: v1.1.0, commit ffea76a2 (2026-06-28)
+  license: MIT, Copyright (c) 2026 pasky
+
+Upstream code (skills/chrome-cdp/scripts/cdp.mjs and SKILL.md) remains under
+the upstream MIT license. This project adds:
+  - login-state transfer (cookies + localStorage) through CDP
+  - independent-profile launch helper
+  - diagnostics (doctor), tests, CI and maintenance docs
+
+Additions are Copyright (c) 2026 yidasanqian and released under the same MIT
+license. See docs/UPSTREAM.md for the baseline and sync policy.

@@ -5,6 +5,8 @@ description: Interact with local Chrome browser session (only on explicit user a
 
 # Chrome CDP
 
+> **Maintained distribution: chrome-cdp-kit.** Upstream commands are unchanged; the additions are listed at the end. Based on chrome-cdp-skill v1.1.0 (`ffea76a2`, MIT).
+
 Lightweight Chrome DevTools Protocol CLI. Connects directly via WebSocket — no Puppeteer, works with 100+ tabs, instant connection.
 
 ## Prerequisites
@@ -75,3 +77,33 @@ CSS px = screenshot image px / DPR
 - Prefer `snap --compact` over `html` for page structure.
 - Use `type` (not eval) to enter text in cross-origin iframes — `click`/`clickxy` to focus first, then `type`.
 - Chrome shows an "Allow debugging" modal once per tab on first access. A background daemon keeps the session alive so subsequent commands need no further approval. Daemons auto-exit after 20 minutes of inactivity.
+
+## Kit additions (chrome-cdp-kit)
+
+Kit commands use **one browser-level connection per browser per run** (not a per-tab daemon), so a consent prompt appears at most once per browser per run.
+
+```bash
+# what is visible; no secrets printed
+scripts/cdp.mjs doctor
+
+# read the live browser (one connection, one Allow prompt)
+scripts/cdp.mjs auth export --out auth.json --origin https://github.com
+
+# write into an already running browser
+scripts/cdp.mjs auth import --auth auth.json --port-file "$TEMP/target-profile/DevToolsActivePort"
+
+# export → launch a dedicated profile → import, keeping the payload in memory
+scripts/cdp.mjs auth sync --browser edge --profile "$TEMP/cdp-profile" --origin https://github.com
+
+# start an independent browser, optionally importing a payload
+scripts/cdp.mjs launch --profile "$TEMP/cdp-profile" --auth auth.json --url https://github.com
+```
+
+Rules:
+
+- `--profile` must be a **dedicated** directory; never the user's daily profile.
+- `auth.json` is plaintext credentials. Prefer `auth sync`; delete exports; never commit or paste them.
+- The browser may ask "Allow remote debugging?" (source and, for a profile with data, the target). Ask the user to approve once; do not loop.
+- After launch/sync, point other clients at the new instance with `CDP_PORT_FILE="$TEMP/cdp-profile/DevToolsActivePort"`.
+- Device-bound sessions and 2FA may still require re-verification; report that instead of retrying.
+- Only `localStorage` for origins passed with `--origin` moves; `sessionStorage`/IndexedDB do not.

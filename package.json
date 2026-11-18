@@ -1,25 +1,47 @@
 {
-  "name": "pi-chrome-cdp",
-  "version": "1.1.0",
-  "description": "Give your AI agent access to your live Chrome session — works out of the box, connects to tabs you already have open",
-  "keywords": [
-    "pi-package",
-    "pi",
-    "pi-coding-agent",
-    "skills",
-    "chrome",
-    "cdp",
-    "browser",
-    "devtools"
-  ],
-  "license": "MIT",
+  "name": "chrome-cdp-kit",
+  "version": "1.2.0",
+  "description": "Chrome DevTools Protocol CLI: drive the live browser and transfer login state into an independent profile (built on chrome-cdp-skill).",
+  "type": "module",
+  "bin": {
+    "cdp": "./skills/chrome-cdp/scripts/cdp.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test",
+    "check": "node --check skills/chrome-cdp/scripts/cdp.mjs && node --test test"
+  },
   "files": [
     "skills/",
-    "README.md"
+    "docs/",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "pi": {
     "skills": [
       "./skills"
     ]
+  },
+  "keywords": [
+    "pi-package",
+    "skills",
+    "chrome",
+    "cdp",
+    "browser",
+    "devtools",
+    "cookies",
+    "localstorage",
+    "agent",
+    "edge"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yidasanqian/chrome-cdp-kit"
   }
 }

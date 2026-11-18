@@ -743,6 +743,13 @@ Usage: cdp <command> [args]
                                     Note: each new tab triggers a fresh "Allow debugging?" prompt
   stop  [target]                    Stop daemon(s)
 
+  -- chrome-cdp-kit additions --
+  auth export --out <file>          Read cookies + --origin localStorage from the live browser
+  auth import --auth <file>         Write an auth payload into a running browser
+  auth sync   --profile <dir>       Export, launch an independent browser, import (memory only)
+  launch --profile <dir> [--auth]   Start an independent browser on a dedicated profile
+  doctor                            Show detected browsers and DevToolsActivePort files
+
 <target> is a unique targetId prefix from "cdp list". If a prefix is ambiguous,
 use more characters.
 
@@ -787,6 +794,12 @@ async function main() {
 
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(USAGE); process.exit(0);
+  }
+
+  // chrome-cdp-kit extension hook: additions live in ./kit/cli.mjs (do not move)
+  if (cmd && !cmd.startsWith('_')) {
+    const { handles, run: runKit } = await import('./kit/cli.mjs');
+    if (handles(cmd)) { await runKit(cmd, args); return; }
   }
 
   if (cmd === 'list' || cmd === 'ls') {
