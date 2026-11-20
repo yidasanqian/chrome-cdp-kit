@@ -26,7 +26,7 @@ Built on [chrome-cdp-skill](https://github.com/pasky/chrome-cdp-skill) **v1.1.0*
 | CI | none | GitHub Actions, Ubuntu + Windows |
 | Docs | README + SKILL | + upstream policy, auth-transfer design, roadmap, changelog |
 | Runtime dependencies | none, Node 22+ | same |
-| Consent model | one prompt per tab (daemon) | upstream commands unchanged; new commands use one connection per browser per run |
+| Consent model | one prompt per tab + one per browser start (daemons) | upstream page commands unchanged; new commands use one connection per browser per run |
 | License | MIT | MIT, upstream copyright retained |
 
 No breaking changes to upstream commands: `list`, `snap`, `eval`, `shot`, `html`, `nav`, `net`, `click`, `clickxy`, `type`, `loadall`, `evalraw`, `open`, `stop`.
@@ -120,7 +120,7 @@ cdp drag   <target> <x1> <y1> <x2> <y2> [steps]   # press → move → release (
 cdp type   <target> "text"
 cdp loadall <target> "selector" [ms]
 cdp evalraw <target> <method> [json]
-cdp open   [url]                      # new tab → new Allow prompt
+cdp open   [url]                      # new tab; shares the browser daemon, the tab itself needs one Allow
 cdp stop   [target]
 ```
 
@@ -170,6 +170,7 @@ Chrome/Edge ask **"Allow remote debugging?"** when a new CDP connection attaches
 
 - a fresh profile has no data and no logins; a profile with logins will always ask;
 - upstream page commands hold **one daemon per tab**, so each tab prompts once and reuses the daemon for 20 idle minutes;
+- `list` / `open` hold **one browser-level daemon per browser start**, so the commands you run to find your tabs no longer prompt every time;
 - the new auth commands hold **one browser-level connection per browser per run**, so a `sync` shows at most two prompts (source + new instance).
 
 No tool can give you "independent instance + live logins + zero consent" at once. This project documents the trade-off instead of hiding it.
@@ -189,7 +190,7 @@ No tool can give you "independent instance + live logins + zero consent" at once
 - Changes: [CHANGELOG.md](CHANGELOG.md)
 
 ```bash
-npm test        # 22 tests, no dependencies
+npm test        # 24 tests, no dependencies
 npm run check   # syntax + tests
 ```
 

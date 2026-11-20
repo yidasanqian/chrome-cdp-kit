@@ -55,13 +55,33 @@ The daemon connects to Chrome before serving the CLI, and Chrome blocks that con
 **Allow remote debugging?** prompt. Approve it once. If no prompt appears, the profile may have the
 toggle off, or another library keeps the debugging endpoint busy.
 
-`cdp open` always needs a new approval: a new tab means a new daemon and a new consent.
+The daemon's own error is written to `<runtime>/daemon-<id>.log` and surfaces verbatim, so a
+rejected upgrade or a listen conflict reports its real cause instead of this message.
+
+`cdp open` no longer costs a prompt of its own: it reuses the browser daemon, and only the new tab
+needs an approval on its first page command.
 
 ## Repeated "Allow remote debugging?" prompts
 
-By design: one prompt per tab on first access (upstream behaviour, see
-[issue #22](https://github.com/pasky/chrome-cdp-skill/issues/22)). `cdp auth …`, `cdp launch` and
-`cdp doctor` use one browser-level connection per run instead, so they cost at most one prompt.
+The dialog is per **connection**, and a profile with saved data asks every time a new one
+appears — there is no "always allow". Each source of new connections:
+
+| Connection | When it is created | Cost |
+|---|---|---|
+| browser daemon (`cdp-browser-<uuid>`) | first `list` / `open` on a browser start | one prompt, reused until 20 min idle or `cdp stop` |
+| tab daemon (`cdp-<targetId>`) | first page command per tab | one prompt per tab, reused the same way |
+| `cdp auth …` / `launch` / `doctor` | every run | one prompt per run |
+
+So if prompts keep coming back, something is making new connections: a new tab (`open`), a
+browser restart (new UUID), a daemon that went idle for 20 minutes, or `cdp stop`. Page commands
+on the *same* tab do not prompt again.
+
+The CLI waits ~6 s for the daemon socket. Click **Allow** inside that window; if you are slower the
+command exits, but the daemon keeps waiting and serves the next call without a second prompt.
+
+`cdp stop` with no target drops the browser daemon and every tab daemon. To stop the prompts
+entirely, use a dedicated profile (`cdp launch --profile DIR`) — see
+[docs/AUTH-TRANSFER.md](AUTH-TRANSFER.md).
 
 ## The screenshot coordinates do not line up
 

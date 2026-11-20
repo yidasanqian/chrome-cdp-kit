@@ -4,6 +4,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/), SemVer on top of the up
 
 ## [Unreleased]
 
+### Added
+
+- **Browser-level daemon for `list` / `open`.** The consent dialog is per connection, and `list`
+  opened one, printed, and closed it — so every session paid a prompt just to find target ids.
+  One daemon per browser start (id derived from the browser UUID) now serves both commands,
+  reused for 20 idle minutes, until a browser restart, or until `cdp stop`.
+- `<runtime>/daemon-<id>.log` plus a spawn lock: a daemon that dies while connecting (rejected
+  upgrade, denied consent, listen conflict) reports the real cause instead of the generic "did you
+  click Allow?"; concurrent CLIs wait for one spawner instead of each spending a prompt.
+- `test/browser-daemon.test.mjs` — a fake CDP endpoint counts WebSocket upgrades to prove
+  `list` → `list` → `open` keeps a single connection (24 tests).
+
 ### Changed
 
 - Packaging is CI-only (`.github/workflows/release.yml`): a tag push runs the tests, checks the tag

@@ -23,6 +23,19 @@ export function daemonPortFile(runtimeDir, targetId) {
   return resolve(runtimeDir, `cdp-${targetId}.port`);
 }
 
+/**
+ * Daemon id for a browser-level endpoint, used by `list` / `open`.
+ *
+ * The trailing UUID of the browser WebSocket URL changes on every browser
+ * start, so this daemon can never outlive the connection it holds: a restarted
+ * browser simply resolves to a new id (and a new consent prompt).
+ */
+export function browserDaemonId(wsUrl) {
+  const tail = String(wsUrl ?? '').split('/').pop() ?? '';
+  const safe = tail.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
+  return `browser-${safe || 'default'}`;
+}
+
 export function formatDaemonEndpoint({ port, token }) {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`invalid daemon port: ${port}`);
   if (!token) throw new Error('daemon token required');

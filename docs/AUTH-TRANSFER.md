@@ -52,7 +52,7 @@ The "Allow remote debugging?" dialog is the browser asking whether an external c
 
 - a fresh profile has no data and no logins;
 - a profile with logins will ask, whether it is the daily profile, a clone, or the new instance after import;
-- upstream page commands deliberately hold a daemon per tab so the prompt appears once per tab; the new auth commands hold one connection per browser per run.
+- upstream page commands deliberately hold a daemon per tab so the prompt appears once per tab; `list` / `open` hold one browser-level daemon per browser start, so tab discovery stops costing a prompt per call; the new auth commands hold one connection per browser per run.
 
 This project accepts the boundary. It does not attempt to suppress the prompt.
 

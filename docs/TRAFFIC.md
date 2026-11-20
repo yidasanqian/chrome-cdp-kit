@@ -27,7 +27,7 @@ chrome-cdp-kit 仓库（★ 与 skill 安装）
 | 上游 #24 已修（`cdp drag`） | 是 | three.js / canvas 自动化人群、`threejs` 关键词 |
 | 上游 #19 已修（`CDP_DAEMON_TCP=1`） | 是 | 企业沙箱 / 云 IDE / Claude Code on the web 用户 |
 | `cdp auth sync`（登录态搬进独立 profile） | 是 | 最硬的需求，SEO 与社区帖的主力卖点 |
-| 22 个测试 + Ubuntu/Windows CI | 是 | 说服企业用户「这个分支更可靠」 |
+| 24 个测试 + Ubuntu/Windows CI | 是 | 说服企业用户「这个分支更可靠」 |
 | 文档齐（UPSTREAM / AUTH-TRANSFER / TROUBLESHOOTING / ROADMAP） | 是 | 被搜索命中的长尾页 |
 
 ## 一等渠道：上游仓库（转化率最高，也最容易翻车）

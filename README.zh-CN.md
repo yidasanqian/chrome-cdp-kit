@@ -23,11 +23,11 @@
 | 登录态搬运（cookie + `localStorage`） | — | `cdp auth export / import / sync` |
 | 启动独立 profile | — | `cdp launch --profile DIR` |
 | 诊断 | — | `cdp doctor` |
-| 自动化测试 | 无 | 22 个（`node --test`） |
+| 自动化测试 | 无 | 24 个（`node --test`） |
 | CI | 无 | GitHub Actions，Ubuntu + Windows |
 | 文档 | README + SKILL | 另加上游策略、登录态搬运设计、路线图、变更日志 |
 | 运行时依赖 | 无，Node 22+ | 相同 |
-| 授权模型 | 每标签页一次（daemon） | 上游命令不变；新命令每浏览器每次运行一条连接 |
+| 授权模型 | 每标签页一次（daemon） | 每标签页一次 + 每浏览器启动一次（daemon）；新命令每浏览器每次运行一条连接 |
 | 许可证 | MIT | MIT，保留上游版权声明 |
 
 对上游命令没有破坏性改动：`list`、`snap`、`eval`、`shot`、`html`、`nav`、`net`、`click`、`clickxy`、`type`、`loadall`、`evalraw`、`open`、`stop`。
@@ -120,7 +120,7 @@ cdp drag   <target> <x1> <y1> <x2> <y2> [steps]   # 按下 → 移动 → 松开
 cdp type   <target> "text"
 cdp loadall <target> "selector" [ms]
 cdp evalraw <target> <method> [json]
-cdp open   [url]                      # 新标签页 → 新的「允许」弹窗
+cdp open   [url]                      # 新标签页；复用浏览器级 daemon，只有这个 tab 自身要授权一次
 cdp stop   [target]
 ```
 
@@ -170,6 +170,7 @@ Chrome/Edge 在一条新的 CDP 连接附加到**有数据的 profile** 时会�
 
 - 全新 profile 没有数据也没有登录态；带登录态的 profile 一定会问；
 - 上游页面命令是**每标签页一个 daemon**：每个 tab 授权一次，之后 20 分钟空闲内复用；
+- `list` / `open` 是**每个浏览器启动一个浏览器级 daemon**：找标签页这类命令不再每次都弹；
 - 新增的 auth 命令是**每个浏览器每次运行一条浏览器级连接**：一次 `sync` 最多两次弹窗（源 + 新实例）。
 
 没有任何工具能同时做到「独立实例 + 实时登录态 + 零授权」。本项目把取舍写清楚，而不是绕过去。
@@ -189,7 +190,7 @@ Chrome/Edge 在一条新的 CDP 连接附加到**有数据的 profile** 时会�
 - 变更：[CHANGELOG.md](CHANGELOG.md)
 
 ```bash
-npm test        # 22 个测试，无依赖
+npm test        # 24 个测试，无依赖
 npm run check   # 语法 + 测试
 ```
 

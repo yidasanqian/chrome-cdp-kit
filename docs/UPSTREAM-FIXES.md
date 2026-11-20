@@ -11,7 +11,7 @@ Legend: **fixed** = code here, **documented** = docs only, **open** = still unso
 | [#24](https://github.com/pasky/chrome-cdp-skill/issues/24) | No way to drag on a canvas (three.js scenes) — only `click`/`clickxy` | **fixed** | `cdp.mjs` (`dragStr`) | `cdp drag <target> 100 100 400 300 20` on any canvas |
 | [#19](https://github.com/pasky/chrome-cdp-skill/issues/19) | `listen EPERM` on the per-tab Unix socket in sandboxes → every page command dies | **fixed** (opt-in `CDP_DAEMON_TCP=1`) | `kit/ipc.mjs`, `cdp.mjs` | `CDP_DAEMON_TCP=1 cdp snap <target>` in the restricted sandbox |
 | [#38](https://github.com/pasky/chrome-cdp-skill/issues/38) | "Thanks for chrome-cdp-skill" (not a defect) | **documented** | this file, `README.md` | — |
-| [#22](https://github.com/pasky/chrome-cdp-skill/issues/22) | "Still asks Allow every command" (closed by maintainer: one prompt per tab is intentional) | **unchanged by design**, cheaper with `cdp auth` | `docs/AUTH-TRANSFER.md` | — |
+| [#22](https://github.com/pasky/chrome-cdp-skill/issues/22) | "Still asks Allow every command" (closed by maintainer: one prompt per tab is intentional) | **cheaper, not suppressed**: `list`/`open` share a browser-level daemon, `cdp auth` uses one connection per run | `cdp.mjs` (`runBrowserDaemon`), `docs/TROUBLESHOOTING.md` | `test/browser-daemon.test.mjs` |
 | [#34](https://github.com/pasky/chrome-cdp-skill/issues/34) | GROWTH.md with promotion strategies (closed) | **this repo's answer**: [TRAFFIC.md](TRAFFIC.md) | — | — |
 
 ## #40 — Chromium 128+ origin allowlist
@@ -98,7 +98,7 @@ stays the filesystem-limited socket.
 ## Reproducing the triage
 
 ```bash
-npm run check                                  # 22 tests, no dependencies
+npm run check                                  # 24 tests, no dependencies
 node --test test/upstream-fixes.test.mjs       # the three fixes only
 node skills/chrome-cdp/scripts/cdp.mjs help    # drag + kit commands documented
 ```

@@ -6,13 +6,15 @@
 // Per-tab persistent daemon: page commands go through a daemon that holds
 // the CDP session open. Chrome's "Allow debugging" modal fires once per
 // daemon (= once per tab). Daemons auto-exit after 20min idle.
+// `list` / `open` run on a second, browser-level daemon so the consent prompt
+// is paid once per browser start instead of once per invocation.
 
-import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { resolve } from 'path';
 import { spawn } from 'child_process';
 import net from 'net';
-import { daemonPortFile, daemonSocket, formatDaemonEndpoint, parseDaemonEndpoint, tcpDaemonEnabled } from './kit/ipc.mjs';
+import { browserDaemonId, daemonPortFile, daemonSocket, formatDaemonEndpoint, parseDaemonEndpoint, tcpDaemonEnabled } from './kit/ipc.mjs';
 
 const TIMEOUT = 15000;
 const NAVIGATION_TIMEOUT = 30000;
@@ -545,11 +547,119 @@ async function evalRawStr(cdp, sid, method, paramsJson) {
 }
 
 // ---------------------------------------------------------------------------
+// Daemon spawn guard + failure log
+// ---------------------------------------------------------------------------
+
+// Two CLIs started at the same time used to spawn two daemons for one key; the
+// loser failed to listen after already spending a consent prompt. The lock makes
+// the second caller wait for the first daemon instead of spawning its own.
+const SPAWN_LOCK_TTL = 30 * 1000;
+
+function spawnLockPath(key) {
+  return resolve(RUNTIME_DIR, `spawn-${key}.lock`);
+}
+
+function claimSpawnLock(key) {
+  const p = spawnLockPath(key);
+  try {
+    if (Date.now() - statSync(p).mtimeMs < SPAWN_LOCK_TTL) return null;
+    unlinkSync(p); // stale lock from a crash
+  } catch {}
+  try {
+    writeFileSync(p, String(process.pid), { flag: 'wx' });
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+function releaseSpawnLock(p) {
+  if (p) try { unlinkSync(p); } catch {}
+}
+
+// The daemon's stderr is /dev/null, so a daemon that dies while connecting
+// (rejected upgrade, consent denied, listen conflict) reports through this file
+// and the CLI surfaces the real cause instead of "did you click Allow?".
+function daemonLogPath(key) {
+  return resolve(RUNTIME_DIR, `daemon-${key}.log`);
+}
+
+function recordDaemonFailure(key, message) {
+  try { writeFileSync(daemonLogPath(key), message.trim() + '\n', { mode: 0o600 }); } catch {}
+}
+
+function clearDaemonFailure(key) {
+  try { unlinkSync(daemonLogPath(key)); } catch {}
+}
+
+function readDaemonFailure(key, since) {
+  try {
+    if (statSync(daemonLogPath(key)).mtimeMs < since) return null;
+    return readFileSync(daemonLogPath(key), 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Daemon IPC server — newline-delimited JSON, shared by both daemons
+// ---------------------------------------------------------------------------
+// Wire format: each message is one JSON object followed by \n.
+// Request:  { "id": <number>, "cmd": "<command>", "args": ["arg1", "arg2", ...] }
+// Response: { "id": <number>, "ok": <boolean>, "result": "<string>" }
+//           or { "id": <number>, "ok": false, "error": "<message>" }
+
+function createDaemonServer({ token, handle, onStop }) {
+  return net.createServer((conn) => {
+    let buf = '';
+    conn.on('data', (chunk) => {
+      buf += chunk.toString();
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete last line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let req;
+        try {
+          req = JSON.parse(line);
+        } catch {
+          conn.write(JSON.stringify({ ok: false, error: 'Invalid JSON request', id: null }) + '\n');
+          continue;
+        }
+        // A loopback port has no filesystem permissions to inherit, so the
+        // token in the port file is the only gate (upstream #19).
+        if (DAEMON_TCP && req.token !== token) {
+          conn.write(JSON.stringify({ ok: false, error: 'unauthorized', id: req.id ?? null }) + '\n');
+          continue;
+        }
+        handle(req).then((res) => {
+          const payload = JSON.stringify({ ...res, id: req.id }) + '\n';
+          if (res.stopAfter) conn.end(payload, onStop);
+          else conn.write(payload);
+        });
+      }
+    });
+  });
+}
+
+async function listenDaemon(server, key, token) {
+  if (!IS_WINDOWS) try { unlinkSync(sockPath(key)); } catch {}
+  try { unlinkSync(portPath(key)); } catch {}
+  if (DAEMON_TCP) {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    writeFileSync(portPath(key), formatDaemonEndpoint({ port: server.address().port, token }), { mode: 0o600 });
+    return;
+  }
+  server.listen(sockPath(key));
+}
+
+// ---------------------------------------------------------------------------
 // Per-tab daemon
 // ---------------------------------------------------------------------------
 
 async function runDaemon(targetId) {
-  const sp = sockPath(targetId);
   // chrome-cdp-kit: published with the loopback port in TCP mode (upstream #19).
   const token = crypto.randomUUID();
 
@@ -557,7 +667,7 @@ async function runDaemon(targetId) {
   try {
     await cdp.connect(getWsUrl());
   } catch (e) {
-    process.stderr.write(`Daemon: cannot connect to Chrome: ${e.message}\n`);
+    recordDaemonFailure(targetId, `Cannot connect to the browser: ${e.message}`);
     process.exit(1);
   }
 
@@ -577,7 +687,7 @@ async function runDaemon(targetId) {
     if (!alive) return;
     alive = false;
     server.close();
-    if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
+    if (!IS_WINDOWS) try { unlinkSync(sockPath(targetId)); } catch {}
     if (DAEMON_TCP) try { unlinkSync(portPath(targetId)); } catch {}
     cdp.close();
     process.exit(0);
@@ -638,57 +748,100 @@ async function runDaemon(targetId) {
     }
   }
 
-  // Unix socket server — NDJSON protocol
-  // Wire format: each message is one JSON object followed by \n (newline-delimited JSON).
-  // Request:  { "id": <number>, "cmd": "<command>", "args": ["arg1", "arg2", ...] }
-  // Response: { "id": <number>, "ok": <boolean>, "result": "<string>" }
-  //           or { "id": <number>, "ok": false, "error": "<message>" }
-  const server = net.createServer((conn) => {
-    let buf = '';
-    conn.on('data', (chunk) => {
-      buf += chunk.toString();
-      const lines = buf.split('\n');
-      buf = lines.pop(); // keep incomplete last line
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let req;
-        try {
-          req = JSON.parse(line);
-        } catch {
-          conn.write(JSON.stringify({ ok: false, error: 'Invalid JSON request', id: null }) + '\n');
-          continue;
-        }
-        // A loopback port has no filesystem permissions to inherit, so the
-        // token in the port file is the only gate (upstream #19).
-        if (DAEMON_TCP && req.token !== token) {
-          conn.write(JSON.stringify({ ok: false, error: 'unauthorized', id: req.id ?? null }) + '\n');
-          continue;
-        }
-        handleCommand(req).then((res) => {
-          const payload = JSON.stringify({ ...res, id: req.id }) + '\n';
-          if (res.stopAfter) conn.end(payload, shutdown);
-          else conn.write(payload);
-        });
-      }
-    });
-  });
+  const server = createDaemonServer({ token, handle: handleCommand, onStop: shutdown });
 
   server.on('error', (e) => {
-    process.stderr.write(`Daemon server listen failed: ${e.message}\n`);
+    recordDaemonFailure(targetId, `Daemon server listen failed: ${e.message}`);
     process.exit(1);
   });
 
-  if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-  try { unlinkSync(portPath(targetId)); } catch {}
-  if (DAEMON_TCP) {
-    await new Promise((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(0, '127.0.0.1', resolve);
-    });
-    writeFileSync(portPath(targetId), formatDaemonEndpoint({ port: server.address().port, token }), { mode: 0o600 });
-  } else {
-    server.listen(sp);
+  await listenDaemon(server, targetId, token);
+  clearDaemonFailure(targetId);
+}
+
+// ---------------------------------------------------------------------------
+// Browser daemon — one connection per browser, reused by list/open
+// ---------------------------------------------------------------------------
+// Chrome's consent dialog is per connection, not per app, and the daily profile
+// always asks. A daemon per tab already amortises page commands; this one does
+// the same for the browser-level commands, so `list` no longer costs a prompt
+// every time it runs.
+
+async function runBrowserDaemon(wsUrlArg) {
+  const wsUrl = wsUrlArg || getWsUrl();
+  const key = browserDaemonId(wsUrl);
+  const token = crypto.randomUUID();
+
+  const cdp = new CDP();
+  try {
+    await cdp.connect(wsUrl);
+  } catch (e) {
+    recordDaemonFailure(key, `Cannot connect to the browser: ${e.message}`);
+    process.exit(1);
   }
+
+  async function handle({ cmd, args = [] }) {
+    resetIdle();
+    try {
+      switch (cmd) {
+        case 'list': case 'ls': {
+          const pages = await getPages(cdp);
+          writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
+          return { ok: true, result: formatPageList(pages) };
+        }
+        case 'list_raw': {
+          return { ok: true, result: JSON.stringify(await getPages(cdp)) };
+        }
+        case 'open': {
+          const url = args[0] || 'about:blank';
+          const { targetId } = await cdp.send('Target.createTarget', { url });
+          const pages = await getPages(cdp);
+          if (!pages.some(p => p.targetId === targetId)) pages.push({ targetId, title: url, url });
+          writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
+          return {
+            ok: true,
+            result: `Opened new tab: ${targetId.slice(0, 8)}  ${url}\n` +
+              'Note: this tab will need "Allow debugging?" approval on first access.',
+          };
+        }
+        case 'stop': return { ok: true, result: '', stopAfter: true };
+        default: return { ok: false, error: `Unknown command: ${cmd}` };
+      }
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  const server = createDaemonServer({ token, handle, onStop: shutdown });
+
+  let alive = true;
+  function shutdown() {
+    if (!alive) return;
+    alive = false;
+    server.close();
+    if (!IS_WINDOWS) try { unlinkSync(sockPath(key)); } catch {}
+    if (DAEMON_TCP) try { unlinkSync(portPath(key)); } catch {}
+    cdp.close();
+    process.exit(0);
+  }
+
+  cdp.onClose(() => shutdown());
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
+  let idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
+  function resetIdle() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(shutdown, IDLE_TIMEOUT);
+  }
+
+  server.on('error', (e) => {
+    recordDaemonFailure(key, `Daemon server listen failed: ${e.message}`);
+    process.exit(1);
+  });
+
+  await listenDaemon(server, key, token);
+  clearDaemonFailure(key);
 }
 
 // ---------------------------------------------------------------------------
@@ -714,27 +867,43 @@ function connectToDaemon(targetId) {
   });
 }
 
-async function getOrStartTabDaemon(targetId) {
-  const sp = sockPath(targetId);
+async function getOrStartDaemon(key, daemonArgs, hint) {
   // Try existing daemon
-  try { return await connectToDaemon(targetId); } catch {}
+  try { return await connectToDaemon(key); } catch {}
 
-  // Clean stale socket
-  if (!IS_WINDOWS) try { unlinkSync(sp); } catch {}
-
-  // Spawn daemon
-  const child = spawn(process.execPath, [process.argv[1], '_daemon', targetId], {
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
+  // One spawner per key: a second CLI waits for that daemon instead of spending
+  // its own consent prompt on a daemon that would fail to listen.
+  const startedAt = Date.now();
+  const lock = claimSpawnLock(key);
+  if (lock) {
+    const child = spawn(process.execPath, [process.argv[1], ...daemonArgs], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  }
 
   // Wait for socket (includes time for user to click Allow)
   for (let i = 0; i < DAEMON_CONNECT_RETRIES; i++) {
     await sleep(DAEMON_CONNECT_DELAY);
-    try { return await connectToDaemon(targetId); } catch {}
+    try { return await connectToDaemon(key); } catch {}
+    const failure = readDaemonFailure(key, startedAt);
+    if (failure) {
+      releaseSpawnLock(lock);
+      throw new Error(failure);
+    }
   }
-  throw new Error('Daemon failed to start — did you click Allow in Chrome?');
+  releaseSpawnLock(lock);
+  throw new Error(`Daemon failed to start — did you click Allow in ${hint}?`);
+}
+
+function getOrStartTabDaemon(targetId) {
+  return getOrStartDaemon(targetId, ['_daemon', targetId], 'Chrome');
+}
+
+function getOrStartBrowserDaemon() {
+  const wsUrl = getWsUrl();
+  return getOrStartDaemon(browserDaemonId(wsUrl), ['_browser', wsUrl], 'Chrome');
 }
 
 function sendCommand(conn, req) {
@@ -795,6 +964,12 @@ function sendCommand(conn, req) {
 // ---------------------------------------------------------------------------
 
 async function stopDaemons(targetPrefix) {
+  if (!targetPrefix) {
+    try {
+      const conn = await connectToDaemon(browserDaemonId(getWsUrl()));
+      await sendCommand(conn, { cmd: 'stop' });
+    } catch {}
+  }
   if (!existsSync(PAGES_CACHE)) return;
   const pages = JSON.parse(readFileSync(PAGES_CACHE, 'utf8'));
   const targets = targetPrefix
@@ -816,11 +991,23 @@ async function stopDaemons(targetPrefix) {
 // Main
 // ---------------------------------------------------------------------------
 
+async function runViaBrowserDaemon(cmd, args = []) {
+  const conn = await getOrStartBrowserDaemon();
+  const response = await sendCommand(conn, { cmd, args });
+  if (response.ok) {
+    if (response.result) console.log(response.result);
+  } else {
+    console.error('Error:', response.error);
+    process.exitCode = 1;
+  }
+}
+
 const USAGE = `cdp - lightweight Chrome DevTools Protocol CLI (no Puppeteer)
 
 Usage: cdp <command> [args]
 
   list                              List open pages (shows unique target prefixes)
+                                    Runs on a persistent browser-level daemon: one Allow, reused until idle
   snap  <target>                    Accessibility tree snapshot
   eval  <target> <expr>             Evaluate JS expression
   shot  <target> [file]             Screenshot (default: screenshot-<target>.png in runtime dir); prints coordinate mapping
@@ -838,8 +1025,8 @@ Usage: cdp <command> [args]
   evalraw <target> <method> [json]  Send a raw CDP command; returns JSON result
                                     e.g. evalraw <t> "DOM.getDocument" '{}'
   open  [url]                       Open a new tab (default: about:blank)
-                                    Note: each new tab triggers a fresh "Allow debugging?" prompt
-  stop  [target]                    Stop daemon(s)
+                                    Uses the browser daemon; the new tab still needs its own Allow
+  stop  [target]                    Stop daemon(s) — no target stops the tab daemons and the browser daemon
 
   -- chrome-cdp-kit additions --
   auth export --out <file>          Read cookies + --origin localStorage from the live browser
@@ -870,6 +1057,8 @@ EVAL SAFETY NOTE
 
 DAEMON IPC (for advanced use / scripting)
   Each tab runs a persistent daemon at Unix socket in the runtime dir (see below).
+  list/open share a browser-level daemon ("cdp-browser-<uuid>"), one per browser
+  start, so repeated calls reuse a single consent approval.
   Protocol: newline-delimited JSON (one JSON object per line, UTF-8).
     Request:  {"id":<number>, "cmd":"<command>", "args":["arg1","arg2",...]}
     Response: {"id":<number>, "ok":true,  "result":"<string>"}
@@ -889,6 +1078,7 @@ async function main() {
 
   // Daemon mode (internal)
   if (cmd === '_daemon') { await runDaemon(args[0]); return; }
+  if (cmd === '_browser') { await runBrowserDaemon(args[0]); return; }
 
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(USAGE); process.exit(0);
@@ -900,32 +1090,16 @@ async function main() {
     if (handles(cmd)) { await runKit(cmd, args); return; }
   }
 
+  // Browser-level commands share one daemon: the consent prompt is per
+  // connection, so a fresh connection per invocation asked every time.
   if (cmd === 'list' || cmd === 'ls') {
-    const cdp = new CDP();
-    await cdp.connect(getWsUrl());
-    const pages = await getPages(cdp);
-    cdp.close();
-    writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
-    console.log(formatPageList(pages));
-    setTimeout(() => process.exit(0), 100);
+    await runViaBrowserDaemon('list');
     return;
   }
 
   // Open new tab
   if (cmd === 'open') {
-    const url = args[0] || 'about:blank';
-    const cdp = new CDP();
-    await cdp.connect(getWsUrl());
-    const { targetId } = await cdp.send('Target.createTarget', { url });
-    // Refresh cache; new tab may not appear in getTargets immediately, so add it manually
-    const pages = await getPages(cdp);
-    if (!pages.some(p => p.targetId === targetId)) {
-      pages.push({ targetId, title: url, url });
-    }
-    cdp.close();
-    writeFileSync(PAGES_CACHE, JSON.stringify(pages), { mode: 0o600 });
-    console.log(`Opened new tab: ${targetId.slice(0, 8)}  ${url}`);
-    console.log('Note: this tab will need "Allow debugging?" approval on first access.');
+    await runViaBrowserDaemon('open', args.length ? [args[0]] : []);
     return;
   }
 
